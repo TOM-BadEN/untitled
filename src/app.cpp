@@ -1853,8 +1853,6 @@ void App::FastScanNames(std::stop_token stop_token) {
     }
 
 
-    app_ids.clear();
-
     // 如果没有应用
     if (app_ids.empty()) {
         LOG("应用记录数为0\n");
