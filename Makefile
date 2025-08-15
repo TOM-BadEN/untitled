@@ -37,15 +37,15 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-APP_TITLE	:= untitled
-APP_AUTHOR	:= TotalJustice
-APP_VERSION	:= 1.3.0
+APP_TITLE	:= Untitled
+APP_AUTHOR	:= Auth. TotalJustice Mod. Tom
+APP_VERSION	:= "2.0.0"
 ICON		:= assets/icon.jpg
 
-TARGET		:=	untitled
+TARGET		:=	UninstallPro
 BUILD		:=	nxbuild
 # untitled
-SOURCES     :=	src
+SOURCES     :=	src src/lang_manager.cpp
 # nanovg
 SOURCES		+=	src/nanovg src/nanovg/deko3d src/nanovg/deko3d/framework src/nanovg/deko3d/shaders
 DATA		:=	data
@@ -80,7 +80,7 @@ CXXFLAGS	:= $(CFLAGS) -std=c++23 -fno-exceptions -fno-rtti
 ASFLAGS	:=	$(ARCH)
 LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= -ldeko3d -lnx
+LIBS	:= -ldeko3d -lnx -lnxtc
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -129,8 +129,9 @@ export OFILES 		:=	$(OFILES_BIN) $(OFILES_SRC)
 export HFILES_BIN	:=	$(addsuffix .h,$(subst .,_,$(BINFILES)))
 
 export INCLUDE		:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
-						$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-						-I$(CURDIR)/$(BUILD)
+  						$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
+  						-I$(DEVKITPRO)/portlibs/switch/include \
+  						-I$(CURDIR)/$(BUILD)
 
 export LIBPATHS		:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 

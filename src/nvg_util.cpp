@@ -144,6 +144,78 @@ void drawText(NVGcontext* vg, float x, float y, float size, const char* str, con
     nvgText(vg, x, y, str, end);
 }
 
+void drawTextBox(NVGcontext* vg, float x, float y, float width, float size, const char* str, const char* end, int align, Colour c) {
+    nvgBeginPath(vg);
+    nvgFontSize(vg, size);
+    nvgTextAlign(vg, align);
+    nvgFillColor(vg, getColour(c));
+    nvgTextBox(vg, x, y, width, str, end);
+}
+
+void drawTextBox(NVGcontext* vg, float x, float y, float width, float size, float lineSpacing, const char* str, const char* end, int align, Colour c) {
+    nvgBeginPath(vg);
+    nvgFontSize(vg, size);
+    nvgTextAlign(vg, align);
+    nvgFillColor(vg, getColour(c));
+    nvgTextLineHeight(vg, lineSpacing);
+    nvgTextBox(vg, x, y, width, str, end);
+}
+
+void drawTextBoxCentered(NVGcontext* vg, float x, float y, float width, float height, float size, float lineSpacing, const char* str, const char* end, Colour c) {
+    nvgFontSize(vg, size);
+    nvgFillColor(vg, getColour(c));
+    nvgTextLineHeight(vg, lineSpacing);
+    
+    // 获取字体度量信息 (Get font metrics)
+    float ascender, descender, lineh;
+    nvgTextMetrics(vg, &ascender, &descender, &lineh);
+    
+    // 计算1个字符的宽度作为左右边距 (Calculate 1 character width as left and right margins)
+    float charWidth = nvgTextBounds(vg, 0, 0, "M", nullptr, nullptr);
+    float leftMargin = charWidth;
+    float rightMargin = charWidth;
+    float textAreaWidth = width - leftMargin - rightMargin;
+    float textAreaX = x + leftMargin;
+    
+    // 计算自动换行后的文本行数 (Calculate text rows after auto line wrapping)
+    NVGtextRow rows[20];
+    int nrows = 0;
+    const char* s = str;
+    int totalRows = 0;
+    
+    // 收集所有文本行 (Collect all text rows)
+    NVGtextRow allRows[20];
+    int allRowsCount = 0;
+    
+    while ((nrows = nvgTextBreakLines(vg, s, end, textAreaWidth, rows, 20)) && allRowsCount < 20) {
+        for (int i = 0; i < nrows && allRowsCount < 20; i++) {
+            allRows[allRowsCount++] = rows[i];
+        }
+        s = rows[nrows-1].next;
+        if (s == nullptr || *s == '\0') break;
+    }
+    
+    // 计算文本总高度 (Calculate total text height)
+    float totalTextHeight = allRowsCount > 0 ? allRowsCount * lineSpacing * lineh : 0;
+    
+    // 计算垂直居中位置 (Calculate vertical center position)
+    float centerY = y + height / 2.0f;
+    float textStartY = centerY - totalTextHeight / 2.0f;
+    
+    // 设置文本对齐方式为水平居中，垂直顶部对齐 (Set text alignment to horizontal center, vertical top)
+    nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+    
+    // 逐行绘制文本，每行都水平居中 (Draw text line by line, each line horizontally centered)
+    float currentY = textStartY;
+    float textAreaCenterX = textAreaX + textAreaWidth / 2.0f;
+    
+    for (int i = 0; i < allRowsCount; i++) {
+        // 为每行文本单独设置水平居中位置 (Set horizontal center position for each line)
+        nvgText(vg, textAreaCenterX, currentY, allRows[i].start, allRows[i].end);
+        currentY += lineSpacing * lineh;
+    }
+}
+
 void drawTextArgs(NVGcontext* vg, float x, float y, float size, int align, Colour c, const char* str, ...) {
     std::va_list v;
     va_start(v, str);
