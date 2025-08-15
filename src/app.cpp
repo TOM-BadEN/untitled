@@ -550,7 +550,10 @@ void App::DrawList() {
     // 处理应用列表为空的边界情况 (Handle edge case when application list is empty)
     if (this->entries.empty()) {
         // 在屏幕中央显示加载提示文本 (Display loading hint text in screen center)
-        gfx::drawTextBoxCentered(this->vg, 90.f, 130.f, 715.f, 516.f, 35.f, 1.5f, no_app_found.c_str(), nullptr, gfx::Colour::SILVER);
+        gfx::drawTextBoxCentered(this->vg, 0.f, 0.f, 1280.f, 720.f, 35.f, 1.5f, no_app_found.c_str(), nullptr, gfx::Colour::SILVER);
+        gfx::drawButtons(this->vg, 
+            gfx::Colour::WHITE, 
+            gfx::pair{gfx::Button::B, button_exit.c_str()});
         return; // 提前返回，不执行后续的列表绘制逻辑 (Early return, skip subsequent list drawing logic)
     }
     
@@ -1188,6 +1191,15 @@ void App::UpdateLoad() {
 }
 
 void App::UpdateList() {
+    // 检查应用列表是否为空，避免数组越界访问 (Check if application list is empty to avoid array out-of-bounds access)
+    if (this->entries.empty()) {
+        // 如果应用列表为空，只处理退出操作 (If application list is empty, only handle exit operation)
+        if (this->controller.B) {
+            this->quit = true;
+        }
+        return; // 提前返回，避免后续操作 (Early return to avoid subsequent operations)
+    }
+    
     // 扫描过程中禁用排序和删除功能
     if (this->controller.B) {
         this->quit = true;
@@ -1839,6 +1851,9 @@ void App::FastScanNames(std::stop_token stop_token) {
         LOG("获取应用ID失败\n");
         goto done;
     }
+
+
+    app_ids.clear();
 
     // 如果没有应用
     if (app_ids.empty()) {
