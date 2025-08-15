@@ -4,7 +4,7 @@
     "button_stop": "中断",
     "software_title": "游戏卸载工具 ",
     "software_title_loading": "%s 扫描中 %lu/%lu",
-    "no_app_found": "未发现应用,按B退出程序。",
+    "no_app_found": "未扫描到任何应用程序，按B退出。",
     "total_selected": "选中总量",
     "plus_sign": "+ ",
     "delete_selected_count": "已选择 %d 项",
