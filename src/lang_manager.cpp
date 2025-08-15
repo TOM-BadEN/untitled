@@ -221,6 +221,7 @@ bool LangManager::loadLanguage(const std::string& langCode) {
             {"plus_sign", std::ref(plus_sign)},
             {"delete_selected_count", std::ref(delete_selected_count)},
             {"space_releasing", std::ref(space_releasing)},
+            {"button_uninstalled", std::ref(button_uninstalled)},
             {"uninstalled_all_app", std::ref(uninstalled_all_app)},
             {"cumulative_released", std::ref(cumulative_released)},
             {"pending_total", std::ref(pending_total)},
