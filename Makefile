@@ -42,7 +42,7 @@ APP_AUTHOR	:= Auth. TotalJustice Mod. Tom
 APP_VERSION	:= "2.0.0"
 ICON		:= assets/icon.jpg
 
-TARGET		:=	UninstallPro
+TARGET		:=	Untitled
 BUILD		:=	nxbuild
 # untitled
 SOURCES     :=	src src/lang_manager.cpp
