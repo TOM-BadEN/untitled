@@ -4,6 +4,7 @@
 "button_stop": "Interrumpir",
 "software_title": "Herramienta de eliminación de juegos",
 "software_title_loading": "%s Escaneando %lu/%lu",
+"delete_title_loading": "%s Eliminando %lu/%lu",
 "no_app_found": "Sin apps, pulsa B para salir.",
 "total_selected": "Total seleccionados",
 "plus_sign": "+ ",

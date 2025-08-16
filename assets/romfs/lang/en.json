@@ -4,6 +4,7 @@
     "button_stop": "Stop",
     "software_title": "Game Uninstall Tool",
     "software_title_loading": "%s Scanning %lu/%lu",
+    "delete_title_loading": "%s Uninstalling %lu/%lu",
     "no_app_found": "No apps found. Press B to exit.",
     "total_selected": "Selected Total",
     "plus_sign": "+ ",

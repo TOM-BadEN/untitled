@@ -4,6 +4,7 @@
     "button_stop": "中斷",
     "software_title": "遊戲卸載工具 ",
     "software_title_loading": "%s 掃描中 %lu/%lu",
+    "delete_title_loading": "%s 卸載中 %lu/%lu",
     "no_app_found": "未發現應用，按B退出程式。",
     "total_selected": "選中總量",
     "plus_sign": "+ ",

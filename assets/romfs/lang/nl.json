@@ -4,6 +4,7 @@
 "button_stop": "Onderbreken",
 "software_title": "Spel verwijdertool",
 "software_title_loading": "%s Scannen %lu/%lu",
+"delete_title_loading": "%s Verwijderen %lu/%lu",
 "no_app_found": "Geen apps, druk B om af te sluiten.",
 "total_selected": "Totaal geselecteerd",
 "plus_sign": "+ ",

@@ -4,6 +4,7 @@
     "button_stop": "Parar",
     "software_title": "Remover Jogos",
     "software_title_loading": "%s A analisar %lu/%lu",
+    "delete_title_loading": "%s Removendo %lu/%lu",
     "no_app_found": "Nenhum app. B para sair.",
     "total_selected": "Total selecionado",
     "plus_sign": "+ ",

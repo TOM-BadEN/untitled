@@ -4,6 +4,7 @@
 "button_stop": "중단",
 "software_title": "게임 삭제 도구",
 "software_title_loading": "%s 스캔 중 %lu/%lu",
+"delete_title_loading": "%s 삭제 중 %lu/%lu",
 "no_app_found": "앱 없음, B로 종료.",
 "total_selected": "선택 총량",
 "plus_sign": "+ ",

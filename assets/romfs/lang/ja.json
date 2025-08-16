@@ -4,6 +4,7 @@
 "button_stop": "中断",
 "software_title": "ゲーム削除ツール",
 "software_title_loading": "% s スキャン中 % lu/% lu",
+"delete_title_loading": "% s 削除中 % lu/% lu",
 "no_app_found": "アプリなし、B で終了。",
 "total_selected": "選択総数",
 "plus_sign": "+",

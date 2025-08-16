@@ -4,6 +4,7 @@
 "button_stop": "Abbrechen",
 "software_title": "Spielentfernungstool",
 "software_title_loading": "%s Scannen %lu/%lu",
+"delete_title_loading": "%s Entfernen %lu/%lu",
 "no_app_found": "Keine Apps, drücke B zum Beenden.",
 "total_selected": "Gesamt ausgewählt",
 "plus_sign": "+ ",
