@@ -506,18 +506,7 @@ void App::DrawBackground() {
 #define STRINGIZE(x) #x // 第一层宏：将参数转换为字符串字面量 (First-level macro: convert parameter to string literal)
 #define STRINGIZE_VALUE_OF(x) STRINGIZE(x) // 第二层宏：先展开宏值再转换为字符串 (Second-level macro: expand macro value then convert to string)
     
-    // 根据扫描状态决定是否显示进度 (Decide whether to show progress based on scanning status)
-    // 动态显示应用程序扫描的实时状态 (Dynamically show real-time status of application scanning)
-    if (!finished_scanning) { // 如果扫描尚未完成 (If scanning is not yet finished)
-        // 扫描未完成，显示"扫描中 xx/xx" (Scanning incomplete, show "Scanning xx/xx")
-        // 使用原子变量确保线程安全的计数器读取 (Use atomic variables for thread-safe counter reading)
-        gfx::drawTextArgs(this->vg, 70.f, 40.f, 28.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE, software_title_loading.c_str(), software_title.c_str(), scanned_count.load(), total_count.load());
-    } else { // 扫描已完成 (Scanning completed)
-        // 扫描完成，只显示标题 (Scanning complete, show only title)
-        // 清洁的界面，不显示进度信息 (Clean interface without progress information)
-        gfx::drawText(this->vg, 70.f, 40.f, 28.f, software_title.c_str(), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE);
-    }
-    
+    gfx::drawText(this->vg, 70.f, 40.f, 28.f, software_title.c_str(), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE);
     // 在右上角显示应用程序版本号 (Display application version number in top-right corner)
     // 使用银色字体，较小尺寸，不干扰主要内容 (Use silver font, smaller size, doesn't interfere with main content)
     gfx::drawText(this->vg, 1224.f, 45.f, 22.f, STRINGIZE_VALUE_OF(UNTITLED_VERSION_STRING), nullptr, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::SILVER);
@@ -552,6 +541,8 @@ void App::DrawLoad() {
 // 显示可删除的应用程序列表，包含图标、标题、大小信息和选择状态 (Display deletable application list with icons, titles, size info and selection status)
 void App::DrawList() {
     std::scoped_lock lock{entries_mutex}; // 保护entries向量的读取操作 (Protect entries vector read operations)
+    
+    
     // 如果没有应用，显示加载提示 (If no apps, show loading hint)
     // If no apps, show loading hint
     // 处理应用列表为空的边界情况 (Handle edge case when application list is empty)
@@ -801,7 +792,8 @@ void App::DrawList() {
     
     // 检查扫描状态，动态调整按钮颜色 / Check scan status and dynamically adjust UI element colors
     if (is_scan_running) {
-
+          
+          gfx::drawTextArgs(this->vg, 70.f, 40.f, 28.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE, software_title_loading.c_str(), software_title.c_str(), scanned_count.load(), total_count.load());
           // 扫描中状态下，根据状态设置按钮颜色 / Set button colors based on scanning state
           // 普通按钮保持白色 / Normal buttons remain white
           gfx::Colour button_color = gfx::Colour::WHITE;
@@ -1095,9 +1087,9 @@ void App::DrawConfirm() {
             gfx::drawText(this->vg, sidebox_x + 30.f + 315.f, sidebox_y + 235.f + 85.f, 24.f, (plus_sign + FormatStorageSize(deleted_sd_bytes)).c_str(), nullptr, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::CYAN);
         }
         
-    } else if (this->delete_thread.valid() || this->deletion_interrupted) {
-        // 正在删除中或删除被中断，显示删除进度 (Deleting in progress or interrupted, show deletion progress)
-        if (this->deletion_interrupted) {
+    } else if (this->delete_thread.valid() || this->deletion_interrupted) {// 正在删除中或删除被中断，显示删除进度 (Deleting in progress or interrupted, show deletion progress)
+        
+        if (this->deletion_interrupted) {//删除中断(STOP Deleting)
             if (total_nand_size > 0){
                 gfx::drawText(this->vg, sidebox_x + 30.f, sidebox_y + 56.f + 85.f, 20.f, pending_total.c_str(), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::CYAN);
                 gfx::drawText(this->vg, sidebox_x + 30.f + 315.f, sidebox_y + 56.f + 85.f, 24.f, (plus_sign + FormatStorageSize(total_nand_size)).c_str(), nullptr, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::CYAN);
@@ -1107,7 +1099,10 @@ void App::DrawConfirm() {
                 gfx::drawText(this->vg, sidebox_x + 30.f + 315.f, sidebox_y + 235.f + 85.f, 24.f, (plus_sign + FormatStorageSize(total_sd_size)).c_str(), nullptr, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::CYAN);
             }
         
-        } else {
+        } else {//正在删除(Deleting)
+
+            // 显示删除进度：当前删除索引+1 / 总删除数量 (Display deletion progress: current deletion index+1 / total deletion count)
+            gfx::drawTextArgs(this->vg, 70.f, 40.f, 28.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE, delete_title_loading.c_str(), software_title.c_str(), this->delete_index + 1, this->delete_entries.size());
             // 获取当前正在删除的应用的大小信息 (Get size info of currently deleting app)
             std::size_t current_nand_size = 0;
             std::size_t current_sd_size = 0;
@@ -1134,6 +1129,7 @@ void App::DrawConfirm() {
         }
     
     } else {
+        // 扫描完成，显示总容量 (Scanning complete, show total capacity)
         if (total_nand_size > 0){
             gfx::drawText(this->vg, sidebox_x + 30.f, sidebox_y + 56.f + 85.f, 20.f, pending_total.c_str(), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::CYAN);
             gfx::drawText(this->vg, sidebox_x + 30.f + 315.f, sidebox_y + 56.f + 85.f, 24.f, (plus_sign + FormatStorageSize(total_nand_size)).c_str(), nullptr, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::CYAN);
@@ -1151,7 +1147,7 @@ void App::DrawConfirm() {
 
 void App::Sort()
 {
-    std::scoped_lock lock{entries_mutex}; // 保护entries向量的排序操作 (Protect entries vector sorting operation)
+    // std::scoped_lock lock{entries_mutex}; // 保护entries向量的排序操作 (Protect entries vector sorting operation)
     switch (static_cast<SortType>(this->sort_type)) {
         case SortType::Size_BigSmall:
             // 按容量从大到小排序
@@ -1212,6 +1208,7 @@ void App::UpdateList() {
     if (this->entries.empty()) {
         // 如果应用列表为空，只处理退出操作 (If application list is empty, only handle exit operation)
         if (this->controller.B) {
+            this->audio_manager.PlayKeySound(0.9);
             this->quit = true;
         }
         return; // 提前返回，避免后续操作 (Early return to avoid subsequent operations)
@@ -1219,18 +1216,22 @@ void App::UpdateList() {
     
     // 扫描过程中禁用排序和删除功能
     if (this->controller.B) {
+        this->audio_manager.PlayKeySound(0.9);
         this->quit = true;
     } else if (this->controller.A) { // 允许在扫描过程中选择列表项
             // 原代码: } else if (!is_scan_running && this->controller.A) { // 非扫描状态下才允许选择
         if (this->entries[this->index].selected) {
+            this->audio_manager.PlayConfirmSound(0.7); 
             this->entries[this->index].selected = false;
             this->delete_count--;
         } else {
+            this->audio_manager.PlayConfirmSound(0.9); 
             this->entries[this->index].selected = true;
             this->delete_count++;
         }
         // add to / remove from delete list
     } else if (!is_scan_running && this->controller.START) { // 非扫描状态下才允许删除
+        this->audio_manager.PlayKeySound(0.9);
         for (const auto&p : this->entries) {
             if (p.selected) {
                 this->delete_entries.push_back(p.id);
@@ -1260,6 +1261,7 @@ void App::UpdateList() {
         }
     } else if (this->controller.DOWN) { // move down
         if (this->index < (this->entries.size() - 1)) {
+            this->audio_manager.PlayKeySound(0.9);
             this->index++;
             this->ypos += this->BOX_HEIGHT;
             if ((this->ypos + this->BOX_HEIGHT) > 646.f) {
@@ -1270,9 +1272,10 @@ void App::UpdateList() {
             }
             // 光标移动后的图标加载由每帧调用自动处理
             // Icon loading after cursor movement is handled by per-frame calls
-        }
+        }else this->audio_manager.PlayLimitSound(1.5); 
     } else if (this->controller.UP) { // move up
         if (this->index != 0 && this->entries.size()) {
+            this->audio_manager.PlayKeySound(0.9);
             this->index--;
             this->ypos -= this->BOX_HEIGHT;
             if (this->ypos < 86.f) {
@@ -1280,12 +1283,13 @@ void App::UpdateList() {
                 this->ypos += this->BOX_HEIGHT;
                 this->yoff = this->ypos;
                 this->start--;
-            }
+            }// 播放按键音效 (Play key sound)
             // 光标移动后触发视口感知图标加载
             // 光标移动后的图标加载由每帧调用自动处理
             // Icon loading after cursor movement is handled by per-frame calls
-        }
+        }else this->audio_manager.PlayLimitSound(1.5); 
     } else if (!is_scan_running && this->controller.Y) { // 非扫描状态下才允许排序
+        this->audio_manager.PlayKeySound(); // 播放按键音效 (Play key sound)
         this->sort_type++;
 
         if (this->sort_type == std::to_underlying(SortType::MAX)) {
@@ -1305,17 +1309,20 @@ void App::UpdateList() {
 
     } else if (!is_scan_running && this->controller.L2) { // 非扫描状态下才允许全选/取消全选
         if (this->delete_count == this->entries.size()) {
+            this->audio_manager.PlayConfirmSound(0.7); 
             for (auto& a : this->entries) {
                 a.selected = false;
             }
             this->delete_count = 0;
         } else {
+            this->audio_manager.PlayConfirmSound(0.9); 
             for (auto& a : this->entries) {
                 a.selected = true;
             }
             this->delete_count = this->entries.size();
         }
     } else if (!is_scan_running && this->controller.R2) { // 非扫描状态下才允许反选
+        this->audio_manager.PlayConfirmSound(0.9); 
         for (auto& a : this->entries) {
             a.selected = !a.selected;
         }
@@ -1330,9 +1337,11 @@ void App::UpdateList() {
         if (this->entries.size() > 0) {
             // 直接更新index，向上翻页4个位置 (Directly update index, page up 4 positions)
             if (this->index >= 4) {
+                this->audio_manager.PlayKeySound(0.9); // 正常翻页音效 (Normal page flip sound)
                 this->index -= 4;
             } else {
                 this->index = 0;
+                this->audio_manager.PlayLimitSound(1.5);
             }
             
             // 直接更新start位置，确保翻页显示4个项目 (Directly update start position to ensure 4 items per page)
@@ -1367,7 +1376,8 @@ void App::UpdateList() {
             // 边界检查：确保不超出列表范围 (Boundary check: ensure not exceeding list range)
             if (this->index >= this->entries.size()) {
                 this->index = this->entries.size() - 1;
-            }
+                this->audio_manager.PlayLimitSound(1.5);
+            }else this->audio_manager.PlayKeySound(0.9);
             
             // 直接更新start位置，确保翻页显示4个项目 (Directly update start position to ensure 4 items per page)
             this->start += 4;
@@ -1401,12 +1411,14 @@ void App::UpdateConfirm() {
     // 检查删除线程状态，防止并发删除操作 (Check deletion thread status to prevent concurrent deletion operations)
     if (this->controller.RIGHT_AND_A && !this->delete_entries.empty() && 
         (!this->delete_thread.valid() || this->finished_deleting)) {
+        this->audio_manager.PlayKeySound(0.9); // 播放确认音效 (Play confirm sound)
         // 强制将卸载界面的列表光标设置到第一个位置 (Force set uninstall interface list cursor to first position)
         this->confirm_index = 0;
         this->confirm_start = 0;
         
         this->finished_deleting = false;
         this->delete_index = 0;
+        this->deletion_interrupted = false;
         
         // 计算准备删除的应用总占用容量 (Calculate total size of apps to be deleted)
         this->deleted_nand_bytes = 0.0;
@@ -1479,9 +1491,11 @@ void App::UpdateConfirm() {
         // 保持在CONFIRM界面进行删除，不跳转到PROGRESS界面 (Stay in CONFIRM interface for deletion, don't jump to PROGRESS)
         this->delete_thread = util::async(NsDeleteAppsAsync, data);
     } else if (this->controller.B) {
+        // 播放取消音效 (Play cancel sound)
         // 检查删除状态来决定B键行为 (Check deletion status to determine B key behavior)
         if (this->delete_thread.valid() && !this->finished_deleting) {
             // 删除进行中，B键中断删除 (Deletion in progress, B key interrupts deletion)
+            this->audio_manager.PlayCancelSound(); 
             this->delete_thread.request_stop();
             // 等待删除线程结束 (Wait for deletion thread to finish)
             if (this->delete_thread.valid()) {
@@ -1500,6 +1514,7 @@ void App::UpdateConfirm() {
                 }
             }
         } else {
+            this->audio_manager.PlayKeySound(0.9); 
             // 未开始删除或删除已完成，B键返回列表 (Not started or deletion completed, B key returns to list)
             this->delete_entries.clear();
             
@@ -1523,10 +1538,16 @@ void App::UpdateConfirm() {
                 // 重置中断和完成标志 (Reset interruption and completion flags)
                 this->deletion_interrupted = false;
                 this->finished_deleting = false;
+                
+                // 强制重置可见区域缓存，确保返回LIST界面后图标能重新加载 (Force reset visible range cache to ensure icons reload after returning to LIST)
+                this->last_loaded_range = {SIZE_MAX, SIZE_MAX};
             } else {
                 // 直接按B返回，保持原有光标位置 (Direct B return, maintain original cursor position)
                 this->ypos = 130.f + (this->index - this->start) * this->BOX_HEIGHT; // 重新计算ypos
                 this->yoff = 130.f; // 重置yoff
+                
+                // 强制重置可见区域缓存，确保返回LIST界面后图标能重新加载 (Force reset visible range cache to ensure icons reload after returning to LIST)
+                this->last_loaded_range = {SIZE_MAX, SIZE_MAX};
             }
             
             // 重置删除完成标志 (Reset deletion finished flag)
@@ -1547,8 +1568,10 @@ void App::UpdateConfirm() {
             // 直接更新confirm_index，向上翻页4个位置 (Directly update confirm_index, page up 4 positions)
             if (this->confirm_index >= 4) {
                 this->confirm_index -= 4;
+                this->audio_manager.PlayKeySound(0.9);
             } else {
                 this->confirm_index = 0;
+                this->audio_manager.PlayLimitSound(1.5);
             }
             
             // 直接更新confirm_start位置，确保翻页显示4个项目 (Directly update confirm_start position to ensure 4 items per page)
@@ -1579,13 +1602,15 @@ void App::UpdateConfirm() {
             return; // 删除进行中，禁用R键功能 (Deletion in progress, disable R key functionality)
         }
         if (this->selected_indices.size() > 0) {
+            this->audio_manager.PlayKeySound(); // 播放按键音效 (Play key sound)
             // 直接更新confirm_index，向下翻页4个位置 (Directly update confirm_index, page down 4 positions)
             this->confirm_index += 4;
             
             // 边界检查：确保不超出列表范围 (Boundary check: ensure not exceeding list range)
             if (this->confirm_index >= this->selected_indices.size()) {
                 this->confirm_index = this->selected_indices.size() - 1;
-            }
+                this->audio_manager.PlayLimitSound(1.5);
+            }else this->audio_manager.PlayKeySound(0.9);
             
             // 直接更新confirm_start位置，确保翻页显示4个项目 (Directly update confirm_start position to ensure 4 items per page)
             this->confirm_start += 4;
@@ -1611,24 +1636,26 @@ void App::UpdateConfirm() {
             return; // 删除进行中，禁用UP键功能 (Deletion in progress, disable UP key functionality)
         }
         if (this->confirm_index > 0) {
+            this->audio_manager.PlayKeySound(0.9); // 播放按键音效 (Play key sound)
             this->confirm_index--;
             // 滚动处理
             if (this->confirm_index < this->confirm_start) {
                 this->confirm_start = this->confirm_index;
             }
-        }
+        }else this->audio_manager.PlayLimitSound(1.5);
     }else if (this->controller.DOWN) {// 下键: 向下滚动列表 (Down key: Scroll list down)
         // 检查删除状态，如果正在删除则禁用DOWN键功能 (Check deletion status, disable DOWN key if deletion is in progress)
         if (this->delete_thread.valid() && !this->finished_deleting) {
             return; // 删除进行中，禁用DOWN键功能 (Deletion in progress, disable DOWN key functionality)
         }
         if (this->confirm_index < this->selected_indices.size() - 1) {
+            this->audio_manager.PlayKeySound(0.9); // 播放按键音效 (Play key sound)
             this->confirm_index++;
             // 滚动处理
             if ((this->confirm_index - this->confirm_start) >= 4) { // 假设每页显示4个项目
                 this->confirm_start++;
             }
-        }
+        }else this->audio_manager.PlayLimitSound(1.5);
     } else if (this->controller.X) { // X键: 从待删除列表中移除当前光标所在的应用 (X key: Remove current cursor app from delete list)
         // 检查删除状态，如果正在删除则禁用X键功能 (Check deletion status, disable X key if deletion is in progress)
         if (this->delete_thread.valid() && !this->finished_deleting) {
@@ -1637,6 +1664,7 @@ void App::UpdateConfirm() {
         }
         
         if (!this->selected_indices.empty() && this->confirm_index < this->selected_indices.size()) {
+            this->audio_manager.PlayConfirmSound(0.9); // 播放取消音效 (Play cancel sound)
             // 获取当前光标所在的应用索引 (Get current cursor app index)
             size_t app_index = this->selected_indices[this->confirm_index];
             
@@ -1658,10 +1686,14 @@ void App::UpdateConfirm() {
             
             // 调整光标位置 (Adjust cursor position)
             if (this->selected_indices.empty()) {
-                // 如果没有选中的应用了，返回主列表 (If no selected apps, return to main list)
-                this->menu_mode = MenuMode::LIST;
+                this->index = 0;
+                this->start = 0;
+                this->ypos = 130.f; // 重置到顶部位置 (Reset to top position)
+                this->yoff = 130.f; // 重置yoff
                 this->confirm_index = 0;
                 this->confirm_start = 0;
+                // 如果没有选中的应用了，返回主列表 (If no selected apps, return to main list)
+                this->menu_mode = MenuMode::LIST;
             } else {
                 // 调整光标位置，确保不超出范围 (Adjust cursor position to stay within range)
                 if (this->confirm_index >= this->selected_indices.size()) {
@@ -2456,6 +2488,9 @@ App::App() {
 
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&this->pad);
+    
+    // 初始化音效管理器 (Initialize audio manager)
+    this->audio_manager.Initialize();
 }
 
 /**
@@ -2463,6 +2498,9 @@ App::App() {
  * 负责清理应用程序使用的所有资源，确保没有内存泄漏
  */
 App::~App() {
+    // 清理音效管理器 (Cleanup audio manager)
+    this->audio_manager.Cleanup();
+    
     // 检查异步线程是否有效，如果有效则停止并等待其完成
     if (this->async_thread.valid()) {
         this->async_thread.request_stop(); // 请求线程停止

@@ -3,6 +3,7 @@
 #include "nanovg/nanovg.h"
 #include "nanovg/deko3d/dk_renderer.hpp"
 #include "async.hpp"
+#include "audio_manager.hpp"
 
 #include <switch.h>
 #include <cstdint>
@@ -226,6 +227,8 @@ private:
 
     uint8_t sort_type{std::to_underlying(SortType::Size_BigSmall)};
     float FPS{0.0f}; // 当前帧率 (Current frame rate)
+    
+    AudioManager audio_manager; // 音效管理器 (Audio manager)
 
     void Draw();
     void Update();
