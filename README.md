@@ -31,9 +31,9 @@ I'm not a programmer, my coding skills are negligible, relying entirely on AI. T
 
 In the multi-language files, except for Chinese, all are machine translated because I only know Chinese. If you really need accurate translations, you can translate the files under assets/romfs/lang yourself and recompile.
 
-因为NS获取应用信息的API，在20系统异常的慢，所以第一次运行时，扫描应用会慢不少，扫描过一次有缓存后，就非常块了。
+因为NS获取应用信息的API，在20系统异常的慢，所以第一次运行时，扫描应用会慢不少，扫描过一次有缓存后，就非常块了。后面可能增加手动解析应用信息的功能。
 
-Because the NS API for getting application information is abnormally slow on system 20, the first run will be quite slow when scanning applications. After scanning once and having a cache, it becomes very fast.
+Because the NS API for getting application information is abnormally slow on system 20, the first run will be quite slow when scanning applications. After scanning once and having a cache, it becomes very fast.In the future, there may be a manual parsing function for application information.
 
 以下内容为原本的README.md
 
