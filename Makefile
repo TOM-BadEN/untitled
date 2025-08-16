@@ -80,13 +80,13 @@ CXXFLAGS	:= $(CFLAGS) -std=c++23 -fno-exceptions -fno-rtti
 ASFLAGS	:=	$(ARCH)
 LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= -ldeko3d -lnx -lnxtc
+LIBS	:= -ldeko3d -lnx -lnxtc -lpulsar
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:= $(PORTLIBS) $(LIBNX)
+LIBDIRS	:= $(PORTLIBS) $(LIBNX) $(CURDIR)/lib/switch-libpulsar
 
 #---------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
