@@ -405,9 +405,15 @@ void App::Update() {
             break;
         case MenuMode::LIST: // 列表模式：显示应用程序列表的主界面 (List mode: main interface showing application list)
             this->UpdateList(); // 处理应用程序列表的交互和显示 (Handle application list interaction and display)
+            // 确保当前屏幕图标始终加载，即使用户不移动光标 (Ensure current screen icons are always loaded, even if user doesn't move cursor)
+            
+            this->LoadVisibleAreaIcons();
+            
             break;
         case MenuMode::CONFIRM: // 确认模式：用户确认操作的对话框状态 (Confirm mode: dialog state for user operation confirmation)
             this->UpdateConfirm(); // 处理确认对话框的逻辑 (Handle confirmation dialog logic)
+            // 确保确认界面图标始终加载，即使用户不移动光标 (Ensure confirm interface icons are always loaded, even if user doesn't move cursor)
+            this->LoadConfirmVisibleAreaIcons();
             break;
     }
 } // App::Update()方法结束 (End of App::Update() method)
@@ -545,6 +551,7 @@ void App::DrawLoad() {
 // App::DrawList() - 绘制应用程序列表界面 (Draw application list interface)
 // 显示可删除的应用程序列表，包含图标、标题、大小信息和选择状态 (Display deletable application list with icons, titles, size info and selection status)
 void App::DrawList() {
+    std::scoped_lock lock{entries_mutex}; // 保护entries向量的读取操作 (Protect entries vector read operations)
     // 如果没有应用，显示加载提示 (If no apps, show loading hint)
     // If no apps, show loading hint
     // 处理应用列表为空的边界情况 (Handle edge case when application list is empty)
@@ -864,6 +871,7 @@ void App::DrawList() {
 
 // 绘制卸载确认界面 / Draw uninstall confirmation interface
 void App::DrawConfirm() {
+    std::scoped_lock lock{entries_mutex}; // 保护entries向量的读取操作 (Protect entries vector read operations)
 
     // 根据删除线程状态动态设置B键文本 / Dynamically set B key text based on deletion thread status
     // 删除进行中显示"停止"，否则显示"返回" / Show "Stop" during deletion, otherwise show "Back"
@@ -902,8 +910,7 @@ void App::DrawConfirm() {
     // 定义右侧信息框的高度 (558像素) / Define right sidebar height (558 pixels)
     constexpr auto sidebox_h = 558.f;
 
-    // 计算准备删除的应用总占用容量 / Calculate total size of apps to be deleted
-    double total_bytes = 0;
+   
 
     // 绘制右侧信息框背景 / Draw right sidebar background
     gfx::drawRect(this->vg, sidebox_x, sidebox_y, sidebox_w, sidebox_h, gfx::Colour::LIGHT_BLACK);
@@ -947,16 +954,12 @@ void App::DrawConfirm() {
     // 遍历并绘制要卸载的应用列表项（只显示已选择的）
     // 首先更新selected_indices
     this->selected_indices.clear();
-    std::size_t nand_size = 0;
-    std::size_t sd_size = 0;
     std::size_t total_nand_size = 0;
     std::size_t total_sd_size = 0;
     for (size_t i = 0; i < this->entries.size(); i++) {
         if (this->entries[i].selected) {
             this->selected_indices.push_back(i);
-            // 同时计算待删除应用在各存储设备上的总占用大小 (Calculate total size on each storage device)
-            nand_size = this->entries[i].size_nand;
-            sd_size = this->entries[i].size_sd;
+            // 计算待删除应用在各存储设备上的总占用大小 (Calculate total size on each storage device)
             total_nand_size += this->entries[i].size_nand;
             total_sd_size += this->entries[i].size_sd;
         }
@@ -1042,7 +1045,6 @@ void App::DrawConfirm() {
         // 绘制SD卡存储大小信息 (Draw SD card storage size information)
         draw_size(200.f, entry.size_sd, storage_sd.c_str());
 
-        total_bytes += static_cast<double>(entry.size_total);
 
 
         // 绘制应用总大小信息 (Draw application total size information)
@@ -1079,8 +1081,8 @@ void App::DrawConfirm() {
     gfx::drawTextArgs(this->vg, 55.f, 670.f, 24.f, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::WHITE, delete_selected_count.c_str(), this->delete_count);
 
     // 检查删除状态并显示相应信息 (Check deletion status and display corresponding information)
-    std::scoped_lock lock{this->mutex};
-    if (this->finished_deleting) {
+    std::scoped_lock mutex_lock{this->mutex};
+    if (this->finished_deleting || this->selected_indices.size() == 0) { // 删除完成或已选择项为空 (Deletion completed or selected items empty)
 
         // 删除完成，在主列表区域显示完成信息 (Deletion completed, show completion message in main list area)
         gfx::drawTextBoxCentered(this->vg, 90.f, 130.f, 715.f, 516.f, 35.f, 1.5f, uninstalled_all_app.c_str(), nullptr, gfx::Colour::SILVER);
@@ -1106,13 +1108,28 @@ void App::DrawConfirm() {
             }
         
         } else {
-            if (nand_size > 0){
-                gfx::drawText(this->vg, sidebox_x + 30.f, sidebox_y + 56.f + 85.f, 20.f, space_releasing.c_str(), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::RED);
-                gfx::drawText(this->vg, sidebox_x + 30.f + 315.f, sidebox_y + 56.f + 85.f, 24.f, (plus_sign + FormatStorageSize(nand_size)).c_str(), nullptr, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::RED);
+            // 获取当前正在删除的应用的大小信息 (Get size info of currently deleting app)
+            std::size_t current_nand_size = 0;
+            std::size_t current_sd_size = 0;
+            if (this->delete_index < this->delete_entries.size()) {
+                u64 current_app_id = this->delete_entries[this->delete_index];
+                // 在entries中查找当前正在删除的应用 (Find currently deleting app in entries)
+                for (const auto& entry : this->entries) {
+                    if (entry.id == current_app_id) {
+                        current_nand_size = entry.size_nand;
+                        current_sd_size = entry.size_sd;
+                        break;
+                    }
+                }
             }
-            if (sd_size > 0){
+            
+            if (current_nand_size > 0){
+                gfx::drawText(this->vg, sidebox_x + 30.f, sidebox_y + 56.f + 85.f, 20.f, space_releasing.c_str(), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::RED);
+                gfx::drawText(this->vg, sidebox_x + 30.f + 315.f, sidebox_y + 56.f + 85.f, 24.f, (plus_sign + FormatStorageSize(current_nand_size)).c_str(), nullptr, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::RED);
+            }
+            if (current_sd_size > 0){
                 gfx::drawText(this->vg, sidebox_x + 30.f, sidebox_y + 235.f + 85.f, 20.f, space_releasing.c_str(), nullptr, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, gfx::Colour::RED);
-                gfx::drawText(this->vg, sidebox_x + 30.f + 315.f, sidebox_y + 235.f + 85.f, 24.f, (plus_sign + FormatStorageSize(sd_size)).c_str(), nullptr, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::RED);
+                gfx::drawText(this->vg, sidebox_x + 30.f + 315.f, sidebox_y + 235.f + 85.f, 24.f, (plus_sign + FormatStorageSize(current_sd_size)).c_str(), nullptr, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, gfx::Colour::RED);
             }
         }
     
@@ -1134,6 +1151,7 @@ void App::DrawConfirm() {
 
 void App::Sort()
 {
+    std::scoped_lock lock{entries_mutex}; // 保护entries向量的排序操作 (Protect entries vector sorting operation)
     switch (static_cast<SortType>(this->sort_type)) {
         case SortType::Size_BigSmall:
             // 按容量从大到小排序
@@ -1181,16 +1199,15 @@ void App::UpdateLoad() {
                 this->async_thread.get();
             }
             this->Sort();
-            // 排序后重置加载状态并触发图标重新加载
-            // Reset load state after sorting and trigger icon reload
-            this->last_loaded_range = {SIZE_MAX, SIZE_MAX};
-            this->LoadVisibleAreaIcons();
+            
+            
             this->menu_mode = MenuMode::LIST;
         }
     }
 }
 
 void App::UpdateList() {
+    std::scoped_lock lock{entries_mutex}; // 保护entries向量的访问和修改 (Protect entries vector access and modification)
     // 检查应用列表是否为空，避免数组越界访问 (Check if application list is empty to avoid array out-of-bounds access)
     if (this->entries.empty()) {
         // 如果应用列表为空，只处理退出操作 (If application list is empty, only handle exit operation)
@@ -1251,9 +1268,8 @@ void App::UpdateList() {
                 this->yoff = this->ypos - ((this->index - this->start - 1) * this->BOX_HEIGHT);
                 this->start++;
             }
-            // 光标移动后触发视口感知图标加载
-            // Trigger viewport-aware icon loading after cursor movement
-            this->LoadVisibleAreaIcons();
+            // 光标移动后的图标加载由每帧调用自动处理
+            // Icon loading after cursor movement is handled by per-frame calls
         }
     } else if (this->controller.UP) { // move up
         if (this->index != 0 && this->entries.size()) {
@@ -1266,8 +1282,8 @@ void App::UpdateList() {
                 this->start--;
             }
             // 光标移动后触发视口感知图标加载
-            // Trigger viewport-aware icon loading after cursor movement
-            this->LoadVisibleAreaIcons();
+            // 光标移动后的图标加载由每帧调用自动处理
+            // Icon loading after cursor movement is handled by per-frame calls
         }
     } else if (!is_scan_running && this->controller.Y) { // 非扫描状态下才允许排序
         this->sort_type++;
@@ -1277,10 +1293,10 @@ void App::UpdateList() {
         }
 
         this->Sort();
-        // 排序后重置加载状态并触发图标重新加载
-        // Reset load state after sorting and trigger icon reload
+        
+        // 强制重置可见区域缓存，确保排序后图标能重新加载 (Force reset visible range cache to ensure icons reload after sorting)
         this->last_loaded_range = {SIZE_MAX, SIZE_MAX};
-        this->LoadVisibleAreaIcons();
+        
         // 重置选择索引，使选择框回到第一项
         this->index = 0;
         // 重置滚动位置
@@ -1341,8 +1357,7 @@ void App::UpdateList() {
             this->ypos = 130.f + (this->index - this->start) * this->BOX_HEIGHT;
             this->yoff = 130.f;
             
-            // 翻页后触发视口感知图标加载 (Trigger viewport-aware icon loading after page change)
-            this->LoadVisibleAreaIcons();
+            // 翻页后的图标加载由每帧调用自动处理 (Icon loading after page change is handled by per-frame calls)
         }
     } else if (this->controller.R) { // R键向下翻页 (R key for page down)
         if (this->entries.size() > 0) {
@@ -1373,36 +1388,23 @@ void App::UpdateList() {
             this->ypos = 130.f + (this->index - this->start) * this->BOX_HEIGHT;
             this->yoff = 130.f;
             
-            // 翻页后触发视口感知图标加载 (Trigger viewport-aware icon loading after page change)
-            this->LoadVisibleAreaIcons();
+            // 翻页后的图标加载由每帧调用自动处理 (Icon loading after page change is handled by per-frame calls)
         }
     } 
 
-    // else if (this->controller.DOWN) { // move down
-    //     if (this->index < (this->entries.size() - 1)) {
-    //         this->index++;
-    //         this->ypos += this->BOX_HEIGHT;
-    //         if ((this->ypos + this->BOX_HEIGHT) > 646.f) {
-    //             LOG("moved down\n");
-    //             this->ypos -= this->BOX_HEIGHT;
-    //             this->yoff = this->ypos - ((this->index - this->start - 1) * this->BOX_HEIGHT);
-    //             this->start++;
-    //         }
-    //         // 光标移动后触发视口感知图标加载
-    //         // Trigger viewport-aware icon loading after cursor movement
-    //         this->LoadVisibleAreaIcons();
-    //     }
+    
     // handle direction keys
 }
 
 void App::UpdateConfirm() {
     
-    // 使用可见区域图标加载，避免内存浪费 (Use visible area icon loading to avoid memory waste)
-    this->LoadConfirmVisibleAreaIcons();
-    
     // 检查删除线程状态，防止并发删除操作 (Check deletion thread status to prevent concurrent deletion operations)
     if (this->controller.RIGHT_AND_A && !this->delete_entries.empty() && 
         (!this->delete_thread.valid() || this->finished_deleting)) {
+        // 强制将卸载界面的列表光标设置到第一个位置 (Force set uninstall interface list cursor to first position)
+        this->confirm_index = 0;
+        this->confirm_start = 0;
+        
         this->finished_deleting = false;
         this->delete_index = 0;
         
@@ -1410,19 +1412,22 @@ void App::UpdateConfirm() {
         this->deleted_nand_bytes = 0.0;
         this->deleted_sd_bytes = 0.0;
         this->deleted_app_count = this->delete_entries.size();
-        for (const auto& app_id : this->delete_entries) {
-            for (const auto& entry : this->entries) {
-                if (entry.id == app_id) {
-                    this->deleted_nand_bytes += static_cast<double>(entry.size_nand);
-                    this->deleted_sd_bytes += static_cast<double>(entry.size_sd);
-                    break;
+        {
+            std::scoped_lock lock{entries_mutex}; // 保护entries向量的读取操作 (Protect entries vector read operations)
+            for (const auto& app_id : this->delete_entries) {
+                for (const auto& entry : this->entries) {
+                    if (entry.id == app_id) {
+                        this->deleted_nand_bytes += static_cast<double>(entry.size_nand);
+                        this->deleted_sd_bytes += static_cast<double>(entry.size_sd);
+                        break;
+                    }
                 }
             }
         }
         NsDeleteData data{
             .entries = this->delete_entries,
             .del_cb = [this](bool error){
-                    std::scoped_lock lock{this->mutex};
+                    std::scoped_lock lock{this->mutex, entries_mutex}; // 同时锁定两个互斥锁避免竞态条件 (Lock both mutexes simultaneously to avoid race conditions)
                     if (error) {
                         LOG("error whilst deleting AppID %lX\n", this->delete_entries[this->delete_index]);
                     } else {
@@ -1430,7 +1435,7 @@ void App::UpdateConfirm() {
                         const auto app_id = this->delete_entries[this->delete_index];
                         for (size_t i = 0; i < this->entries.size(); i++) {
                             if (this->entries[i].id == app_id) {
-                                nvgDeleteImage(this->vg, this->entries[i].image);
+                                // 不删除图标，依赖程序退出时自动释放 (Don't delete icon, rely on automatic release on program exit)
                                 this->entries.erase(this->entries.begin() + i);
                                 break;
                             }
@@ -1438,6 +1443,14 @@ void App::UpdateConfirm() {
                         // 更新删除计数和应用总数 (Update delete count and total count)
                         this->delete_count--;
                         total_count.fetch_sub(1);
+                        
+                        // 立即刷新存储空间信息 (Immediately refresh storage space information)
+                        nsGetTotalSpaceSize(NcmStorageId_SdCard, (s64*)&this->sdcard_storage_size_total);
+                        nsGetFreeSpaceSize(NcmStorageId_SdCard, (s64*)&this->sdcard_storage_size_free);
+                        nsGetTotalSpaceSize(NcmStorageId_BuiltInUser, (s64*)&this->nand_storage_size_total);
+                        nsGetFreeSpaceSize(NcmStorageId_BuiltInUser, (s64*)&this->nand_storage_size_free);
+                        this->nand_storage_size_used = this->nand_storage_size_total - this->nand_storage_size_free;
+                        this->sdcard_storage_size_used = this->sdcard_storage_size_total - this->sdcard_storage_size_free;
                     }
                     this->delete_index++;
                 },
@@ -1445,6 +1458,14 @@ void App::UpdateConfirm() {
                 std::scoped_lock lock{this->mutex};
                 LOG("finished deleting entries...\n");
                 this->finished_deleting = true;
+                
+                // 刷新存储空间信息 (Refresh storage space information)
+                nsGetTotalSpaceSize(NcmStorageId_SdCard, (s64*)&this->sdcard_storage_size_total);
+                nsGetFreeSpaceSize(NcmStorageId_SdCard, (s64*)&this->sdcard_storage_size_free);
+                nsGetTotalSpaceSize(NcmStorageId_BuiltInUser, (s64*)&this->nand_storage_size_total);
+                nsGetFreeSpaceSize(NcmStorageId_BuiltInUser, (s64*)&this->nand_storage_size_free);
+                this->nand_storage_size_used = this->nand_storage_size_total - this->nand_storage_size_free;
+                this->sdcard_storage_size_used = this->sdcard_storage_size_total - this->sdcard_storage_size_free;
                 
                 // 重置状态 (Reset state)
                 // delete_count已经在del_cb中逐个减少，这里直接设为0 (delete_count already decreased in del_cb, set to 0 here)
@@ -1514,14 +1535,14 @@ void App::UpdateConfirm() {
                 this->finished_deleting = false;
             }
             
-            // 返回列表时强制重置加载状态并触发图标重新加载，确保图标立即显示 (Force reset load state and trigger icon reload when returning to list to ensure immediate icon display)
-            this->last_loaded_range = {SIZE_MAX, SIZE_MAX}; // 强制重置加载范围 (Force reset load range)
-            this->last_load_time = std::chrono::steady_clock::time_point{}; // 重置防抖时间 (Reset debounce time)
-            this->LoadVisibleAreaIcons();
             
             this->menu_mode = MenuMode::LIST;
         }
     } else if (this->controller.L) { // L键向上翻页 (L key for page up)
+        // 检查删除状态，如果正在删除则禁用L键功能 (Check deletion status, disable L key if deletion is in progress)
+        if (this->delete_thread.valid() && !this->finished_deleting) {
+            return; // 删除进行中，禁用L键功能 (Deletion in progress, disable L key functionality)
+        }
         if (this->selected_indices.size() > 0) {
             // 直接更新confirm_index，向上翻页4个位置 (Directly update confirm_index, page up 4 positions)
             if (this->confirm_index >= 4) {
@@ -1548,12 +1569,15 @@ void App::UpdateConfirm() {
                 this->confirm_index = max_index_in_page;
             }
 
-            // 翻页后触发视口感知图标加载 (Trigger viewport-aware icon loading after page change)
-            this->LoadVisibleAreaIcons();
+            // 翻页后的图标加载由Update方法中的每帧调用处理 (Icon loading after page change is handled by per-frame call in Update method)
             
         }
 
     } else if (this->controller.R) { // R键向下翻页 (R key for page down)
+        // 检查删除状态，如果正在删除则禁用R键功能 (Check deletion status, disable R key if deletion is in progress)
+        if (this->delete_thread.valid() && !this->finished_deleting) {
+            return; // 删除进行中，禁用R键功能 (Deletion in progress, disable R key functionality)
+        }
         if (this->selected_indices.size() > 0) {
             // 直接更新confirm_index，向下翻页4个位置 (Directly update confirm_index, page down 4 positions)
             this->confirm_index += 4;
@@ -1578,11 +1602,14 @@ void App::UpdateConfirm() {
                 this->confirm_start = 0;
             }
 
-            // 翻页后触发视口感知图标加载 (Trigger viewport-aware icon loading after page change)
-            this->LoadVisibleAreaIcons();
+            // 翻页后的图标加载由Update方法中的每帧调用处理 (Icon loading after page change is handled by per-frame call in Update method)
         }
 
     } else if (this->controller.UP) {// 上键: 向上滚动列表 (Up key: Scroll list up)
+        // 检查删除状态，如果正在删除则禁用UP键功能 (Check deletion status, disable UP key if deletion is in progress)
+        if (this->delete_thread.valid() && !this->finished_deleting) {
+            return; // 删除进行中，禁用UP键功能 (Deletion in progress, disable UP key functionality)
+        }
         if (this->confirm_index > 0) {
             this->confirm_index--;
             // 滚动处理
@@ -1591,6 +1618,10 @@ void App::UpdateConfirm() {
             }
         }
     }else if (this->controller.DOWN) {// 下键: 向下滚动列表 (Down key: Scroll list down)
+        // 检查删除状态，如果正在删除则禁用DOWN键功能 (Check deletion status, disable DOWN key if deletion is in progress)
+        if (this->delete_thread.valid() && !this->finished_deleting) {
+            return; // 删除进行中，禁用DOWN键功能 (Deletion in progress, disable DOWN key functionality)
+        }
         if (this->confirm_index < this->selected_indices.size() - 1) {
             this->confirm_index++;
             // 滚动处理
@@ -2023,6 +2054,15 @@ std::pair<size_t, size_t> App::GetConfirmVisibleRange() const {
 // Viewport-aware smart icon loading: prioritize loading icons in visible area based on cursor position
 
 void App::LoadVisibleAreaIcons() {
+    // 如果应用列表为空，直接返回，避免没有应用的设备出现问题
+    // If application list is empty, return directly to avoid issues on devices without apps
+    {
+        std::scoped_lock lock{entries_mutex};
+        if (entries.empty()) {
+            return;
+        }
+    }
+
     auto now = std::chrono::steady_clock::now();
     
     // 防抖：如果距离上次调用不足100ms，则跳过
@@ -2035,19 +2075,20 @@ void App::LoadVisibleAreaIcons() {
     
     auto [visible_start, visible_end] = GetVisibleRange();
     
-    // 如果可见区域没有变化，则跳过
-    // Skip if visible range hasn't changed
-    if (last_loaded_range.first == visible_start && last_loaded_range.second == visible_end) {
+    // 如果可见区域没有变化且不是强制重置状态，则跳过
+    // Skip if visible range hasn't changed and not in force reset state
+    if (last_loaded_range.first == visible_start && last_loaded_range.second == visible_end && 
+        last_loaded_range.first != SIZE_MAX) {
         return;
     }
     last_loaded_range = {visible_start, visible_end};
     
-    // 图标加载策略：优先加载首屏4个应用，然后加载即将进入屏幕的应用
-    // Icon loading strategy: prioritize first screen 4 apps, then load upcoming screen apps
-    constexpr size_t PRELOAD_BUFFER = 2; // 即将进入屏幕的应用数量
+    // 图标加载策略：加载当前屏幕4个应用和下方即将进入屏幕的应用
+    // Icon loading strategy: load current screen 4 apps and upcoming apps below
+    constexpr size_t PRELOAD_BUFFER = 2; // 下方预加载的应用数量
     constexpr size_t FIRST_SCREEN_SIZE = 4; // 首屏应用数量
     
-    size_t load_start = (visible_start >= PRELOAD_BUFFER) ? (visible_start - PRELOAD_BUFFER) : 0;
+    size_t load_start = visible_start; // 从当前可见区域开始，不预加载上方
     size_t load_end;
     {
         std::scoped_lock lock{entries_mutex};
@@ -2175,19 +2216,25 @@ void App::LoadConfirmVisibleAreaIcons() {
         return;
     }
     
-    // 获取当前可见范围 (Get current visible range)
-    const auto [visible_start, visible_end] = GetConfirmVisibleRange();
-    
     // 防抖机制：避免频繁加载 (Debouncing mechanism: avoid frequent loading)
     const auto current_time = std::chrono::steady_clock::now();
     const auto time_since_last_load = current_time - this->last_confirm_load_time;
+    
+    // 先检查防抖时间，如果时间不足则直接返回，避免不必要的范围计算
+    // Check debounce time first, return directly if insufficient time to avoid unnecessary range calculation
+    if (time_since_last_load < LOAD_DEBOUNCE_MS) {
+        return;
+    }
+    
+    // 获取当前可见范围 (Get current visible range)
+    const auto [visible_start, visible_end] = GetConfirmVisibleRange();
     
     // 检查可见范围是否发生变化 (Check if visible range has changed)
     const std::pair<size_t, size_t> current_range = {visible_start, visible_end};
     const bool range_changed = (current_range != this->last_confirm_loaded_range);
     
-    // 如果范围没有变化且距离上次加载时间不足防抖延迟，则跳过加载 (Skip loading if range unchanged and within debounce delay)
-    if (!range_changed && time_since_last_load < LOAD_DEBOUNCE_MS) {
+    // 如果范围没有变化，则跳过加载 (Skip loading if range unchanged)
+    if (!range_changed) {
         return;
     }
     
@@ -2402,11 +2449,8 @@ App::App() {
     // Start fast info scanning
     this->async_thread = util::async([this](std::stop_token stop_token){
             this->FastScanNames(stop_token);
-            // 名称扫描完成后，触发初始视口加载
-            // After name scanning is complete, trigger initial viewport loading
-            if (!stop_token.stop_requested()) {
-                this->LoadVisibleAreaIcons();
-            }
+            // 名称扫描完成后，初始视口加载由每帧调用自动处理
+            // After name scanning is complete, initial viewport loading is handled by per-frame calls
         }
     );
 
