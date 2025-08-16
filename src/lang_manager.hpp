@@ -12,6 +12,7 @@ extern std::string button_back;
 extern std::string button_stop;
 extern std::string software_title;
 extern std::string software_title_loading;
+extern std::string delete_title_loading;
 extern std::string no_app_found;
 extern std::string total_selected;
 extern std::string plus_sign;

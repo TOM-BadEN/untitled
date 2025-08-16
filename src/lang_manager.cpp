@@ -11,6 +11,7 @@ std::string button_back = "Back";
 std::string button_stop = "Stop";
 std::string software_title = "Game Uninstall Tool";
 std::string software_title_loading = "%s Scanning %lu/%lu";
+std::string delete_title_loading = "%s Uninstalling %lu/%lu";
 std::string no_app_found = "No apps found. Press B to exit.";
 std::string total_selected = "Selected Total";
 std::string plus_sign = "+ ";
@@ -216,6 +217,7 @@ bool LangManager::loadLanguage(const std::string& langCode) {
             {"button_stop", std::ref(button_stop)},
             {"software_title", std::ref(software_title)},
             {"software_title_loading", std::ref(software_title_loading)},
+            {"delete_title_loading", std::ref(delete_title_loading)},
             {"no_app_found", std::ref(no_app_found)},
             {"total_selected", std::ref(total_selected)},
             {"plus_sign", std::ref(plus_sign)},
